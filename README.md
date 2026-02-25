@@ -59,13 +59,6 @@ docker run -d --name fomo-firewall -p 3000:3000 -v fomo_firewall_data:/app/data 
 
 然后打开：`http://localhost:3000`
 
-如果你之前拉过旧镜像并启动失败，先执行：
-
-```bash
-docker rm -f fomo-firewall
-docker pull ghcr.io/mogwai911/fomo-firewall:latest
-```
-
 ### 方式 B：本地构建运行
 
 ```bash
