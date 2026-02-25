@@ -1,8 +1,6 @@
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/mogwai911/fomo-firewall:latest
     container_name: fomo-firewall
     ports:
       - "3000:3000"

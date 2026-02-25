@@ -25,16 +25,32 @@ FOMO Firewall 是一个帮助信息过载用户每天快速筛掉“可跳过内
 开始前你需要准备：
 - 一台可联网电脑（Windows / macOS / Linux 均可）
 - 安装好 Docker Desktop
-- 一个可用的大模型服务密钥（兼容 OpenAI 协议）
+
+### 方式 A：直接拉取镜像（最省事）
+
+1. 打开终端，执行：
+```bash
+docker run -d --name fomo-firewall -p 3000:3000 -v fomo_firewall_data:/app/data ghcr.io/mogwai911/fomo-firewall:latest
+```
+2. 打开浏览器访问：`http://localhost:3000`
+3. 首次进入后，去“设置”里按需填写模型地址和密钥（可选，不填也能先体验基础流程）。
+
+### 方式 B：本地构建启动（备用）
 
 步骤：
 1. 下载本项目代码到本地。
 2. 复制环境文件：`cp .env.example .env`
-3. 生成并填入你的加密密钥：`APP_SETTINGS_ENCRYPTION_KEY`
-4. 启动：`docker compose up -d --build`
+3. 启动：`docker compose up -d --build`
 5. 打开浏览器访问：`http://localhost:3000`
 6. 在“设置”里填入模型地址、密钥，并添加你的订阅源。
 7. 回到“日报处置”，点击“更新日报”开始使用。
+
+## 这些配置是做什么的？
+
+- `模型地址`：你要连接哪个模型服务。  
+- `API Key`：你自己的模型服务密钥。  
+- `APP_SETTINGS_ENCRYPTION_KEY`：只用于把你的密钥加密后保存在你本机。  
+  如果你用上面的 Docker 一键启动，系统会自动生成，不用你手动填。  
 
 ## 常见问题 FAQ
 
@@ -46,6 +62,9 @@ A: 工具本身不强制付费，但你使用的大模型服务可能按调用�
 
 **Q: 需要什么账号？**  
 A: 你需要一个可用的大模型服务账号，用来获取模型地址和密钥。  
+
+**Q: 不配模型密钥可以用吗？**  
+A: 可以。你可以先体验订阅、日报处置和流程；要使用 AI 分流/学习增强时再补模型配置。  
 
 **Q: 我的数据会被保存到哪里？**  
 A: 默认保存在你自己的本机数据文件（Docker 数据卷）里，不会自动上传到第三方。  
