@@ -26,6 +26,9 @@ coverage/
 .codex/
 .vscode/
 
+# local-only docs
+docs/
+
 # local databases
 prisma/*.db
 prisma/*.db-journal

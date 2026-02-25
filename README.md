@@ -123,11 +123,6 @@ If using HTTPS remote:
 git remote add origin https://github.com/<you>/<repo>.git
 ```
 
-## Project Docs
+## Notes
 
-- PRD: `docs/fomo_firewall_prd_v2.md`
-- IA: `docs/fomo_firewall_ia_v1.md`
-- Flow: `docs/业务流程图.mmd`
-- Execution checklist: `docs/fomo_firewall_execution_checklist.md`
-- Development log: `docs/development-log.md`
-- Closeout plan: `docs/plans/2026-02-25-mvp-stage-closeout-release-plan.md`
+- This public repo intentionally excludes local project docs used during development.
