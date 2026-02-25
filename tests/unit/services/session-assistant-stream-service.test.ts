@@ -246,6 +246,98 @@ describe("session-assistant-stream-service", () => {
     expect(appendMessage).toHaveBeenCalledTimes(1);
   });
 
+  it("falls back to non-stream completion when stream fetch fails before first delta", async () => {
+    const appendMessage = vi
+      .fn()
+      .mockResolvedValueOnce({
+        id: "user-msg-1",
+        sessionId: "session-1",
+        role: "USER",
+        content: "hello",
+        metaJson: null,
+        createdAt: "2026-02-21T00:00:00.000Z"
+      })
+      .mockResolvedValueOnce({
+        id: "assistant-msg-1",
+        sessionId: "session-1",
+        role: "ASSISTANT",
+        content: "这是 fallback 回复",
+        metaJson: null,
+        createdAt: "2026-02-21T00:00:01.000Z"
+      });
+
+    const streamChat = vi.fn().mockImplementation(async function* () {
+      throw new Error("fetch failed");
+    });
+    const completeChat = vi.fn().mockResolvedValue("这是 fallback 回复");
+
+    const events = [] as Array<{ type: string; code?: string }>;
+    for await (const event of streamSessionAssistantReply(
+      {
+        sessionId: "session-1",
+        role: "user",
+        content: "hello"
+      },
+      {
+        getSession: vi.fn().mockResolvedValue({
+          id: "session-1",
+          signal: {
+            id: "signal-1",
+            title: "Signal",
+            summary: "Summary",
+            url: "https://example.com",
+            source: {
+              id: "source-1",
+              name: "Source"
+            }
+          },
+          status: "ACTIVE",
+          createdAt: "2026-02-21T00:00:00.000Z",
+          updatedAt: "2026-02-21T00:00:00.000Z",
+          messages: [],
+          jobs: []
+        }),
+        appendMessage,
+        getSettings: vi.fn().mockResolvedValue({
+          schedule: {
+            enabled: false,
+            time: "09:00",
+            timezone: "UTC"
+          },
+          apiConfig: {
+            baseUrl: "https://api.openai.com/v1",
+            apiKey: "key",
+            model: "gpt-4o-mini"
+          },
+          prompts: {
+            triage: "",
+            sessionAssistant: ""
+          },
+          updatedAt: "2026-02-21T00:00:00.000Z"
+        }),
+        streamChat,
+        completeChat,
+        resolveModel: () => "gpt-4o-mini",
+        fetchArticleExcerpt: vi.fn().mockResolvedValue("article excerpt")
+      } as any
+    )) {
+      events.push({ type: event.type, code: event.type === "error" ? event.code : undefined });
+    }
+
+    expect(events).toEqual([
+      { type: "ack", code: undefined },
+      { type: "done", code: undefined }
+    ]);
+    expect(streamChat).toHaveBeenCalledTimes(1);
+    expect(completeChat).toHaveBeenCalledTimes(1);
+    expect(appendMessage).toHaveBeenCalledTimes(2);
+    expect(appendMessage).toHaveBeenNthCalledWith(2, {
+      sessionId: "session-1",
+      role: "assistant",
+      content: "这是 fallback 回复"
+    });
+  });
+
   it("emits ack then config error when llm base url/key are missing", async () => {
     const appendMessage = vi.fn().mockResolvedValue({
       id: "user-msg-1",

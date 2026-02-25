@@ -1,10 +1,10 @@
-FROM node:20-bookworm-slim AS deps
+FROM node:20-bookworm AS deps
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM node:20-bookworm-slim AS builder
+FROM node:20-bookworm AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
@@ -12,7 +12,7 @@ COPY . .
 RUN npx prisma generate
 RUN npm run build
 
-FROM node:20-bookworm-slim AS runner
+FROM node:20-bookworm AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -25,7 +25,8 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts/docker/entrypoint.sh ./scripts/docker/entrypoint.sh
 
 RUN chmod +x ./scripts/docker/entrypoint.sh \
-  && mkdir -p /app/data
+  && mkdir -p /app/data \
+  && npx prisma generate
 
 EXPOSE 3000
 

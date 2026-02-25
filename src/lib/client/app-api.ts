@@ -48,15 +48,50 @@ export class AppApiError extends Error {
 }
 
 async function parseJson<T>(response: Response): Promise<T> {
-  const json = (await response.json()) as T | ApiErrorPayload;
-  if (response.ok) {
-    return json as T;
+  let parsed: unknown = null;
+  let rawText = "";
+
+  if (typeof response.text === "function") {
+    rawText = await response.text();
+    if (rawText.trim().length > 0) {
+      try {
+        parsed = JSON.parse(rawText);
+      } catch {
+        parsed = null;
+      }
+    }
+  } else {
+    try {
+      parsed = await response.json();
+      rawText = JSON.stringify(parsed);
+    } catch (error) {
+      rawText = error instanceof Error ? error.message : "";
+    }
   }
 
-  const errorPayload = json as ApiErrorPayload;
-  const code = typeof errorPayload.error === "string" ? errorPayload.error : "API_ERROR";
-  const message = typeof errorPayload.message === "string" ? errorPayload.message : code;
-  throw new AppApiError(response.status, code, message);
+  if (response.ok) {
+    if (parsed !== null) {
+      return parsed as T;
+    }
+    throw new AppApiError(
+      response.status,
+      "INVALID_JSON_RESPONSE",
+      rawText || "invalid json response"
+    );
+  }
+
+  if (parsed && typeof parsed === "object") {
+    const errorPayload = parsed as ApiErrorPayload;
+    const code = typeof errorPayload.error === "string" ? errorPayload.error : "API_ERROR";
+    const message = typeof errorPayload.message === "string" ? errorPayload.message : code;
+    throw new AppApiError(response.status, code, message);
+  }
+
+  throw new AppApiError(
+    response.status,
+    "API_ERROR",
+    rawText || response.statusText || "request failed"
+  );
 }
 
 function buildQuery(params: Record<string, string | number | undefined>): string {

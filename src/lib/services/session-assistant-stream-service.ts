@@ -1,5 +1,6 @@
 import type { AppSettingsView, SessionMessageView } from "@/lib/client/app-types";
 import {
+  buildChatEndpoint,
   type OpenAIChatStreamMessage,
   type StreamChatCompletionsInput,
   LlmStreamError,
@@ -49,6 +50,12 @@ interface SessionAssistantStreamDeps {
   }) => Promise<SessionMessageView>;
   getSettings: () => Promise<AppSettingsView>;
   streamChat: (input: StreamChatCompletionsInput) => AsyncGenerator<string>;
+  completeChat?: (input: {
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+    messages: OpenAIChatStreamMessage[];
+  }) => Promise<string>;
   resolveModel: () => string;
   fetchArticleExcerpt: (articleUrl: string) => Promise<string>;
 }
@@ -91,6 +98,39 @@ function defaultDeps(): SessionAssistantStreamDeps {
     appendMessage: (input) => appendSessionMessage(input),
     getSettings: () => getAppSettings(),
     streamChat: (input) => streamChatCompletions(input),
+    completeChat: async (input) => {
+      const response = await fetch(buildChatEndpoint(input.baseUrl), {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${input.apiKey}`
+        },
+        body: JSON.stringify({
+          model: input.model,
+          temperature: 0.3,
+          messages: input.messages
+        })
+      });
+      if (!response.ok) {
+        throw new LlmStreamError(
+          "LLM_REQUEST_FAILED",
+          `llm request failed: ${response.status}`,
+          response.status
+        );
+      }
+      const json = (await response.json()) as {
+        choices?: Array<{
+          message?: {
+            content?: string | null;
+          };
+        }>;
+      };
+      const content = json.choices?.[0]?.message?.content?.trim();
+      if (!content) {
+        throw new LlmStreamError("LLM_STREAM_PARSE_FAILED", "assistant response empty");
+      }
+      return content;
+    },
     resolveModel: () => process.env.TRIAGE_LLM_MODEL ?? "gpt-4o-mini",
     fetchArticleExcerpt: (articleUrl) => fetchArticleExcerpt(articleUrl)
   };
@@ -112,6 +152,12 @@ function mapStreamError(error: unknown): { code: string; message: string } {
   }
 
   if (error instanceof Error) {
+    if (error.message.toLowerCase().includes("fetch failed")) {
+      return {
+        code: "LLM_REQUEST_FAILED",
+        message: error.message
+      };
+    }
     return {
       code: "SESSION_ASSISTANT_STREAM_FAILED",
       message: error.message
@@ -140,6 +186,22 @@ function normalizeMessagesForPrompt(session: SessionContext): Array<{
     role: message.role,
     content: message.content
   }));
+}
+
+function shouldAttemptNonStreamFallback(
+  error: unknown,
+  deps: Pick<SessionAssistantStreamDeps, "completeChat">
+): boolean {
+  if (!deps.completeChat) {
+    return false;
+  }
+  if (error instanceof LlmStreamError && error.code === "LLM_CONFIG_MISSING") {
+    return false;
+  }
+  if (error instanceof Error && error.name === "AbortError") {
+    return false;
+  }
+  return true;
 }
 
 function hasLlmConfig(settings: AppSettingsView): boolean {
@@ -240,13 +302,14 @@ export async function* streamSessionAssistantReply(
   }
 
   const promptMessages = await buildLlmMessages(session, userMessage.content, settings, deps);
+  const model = resolveAssistantModel(settings, deps);
 
   let assistantText = "";
   try {
     for await (const delta of deps.streamChat({
       baseUrl: settings.apiConfig.baseUrl,
       apiKey: settings.apiConfig.apiKey,
-      model: resolveAssistantModel(settings, deps),
+      model,
       messages: promptMessages,
       signal: input.signal
     })) {
@@ -281,6 +344,38 @@ export async function* streamSessionAssistantReply(
       assistantMessage
     };
   } catch (error) {
+    if (assistantText.trim().length === 0 && shouldAttemptNonStreamFallback(error, deps)) {
+      try {
+        const fallbackContent = (await deps.completeChat?.({
+          baseUrl: settings.apiConfig.baseUrl,
+          apiKey: settings.apiConfig.apiKey,
+          model,
+          messages: promptMessages
+        }))?.trim();
+
+        if (fallbackContent) {
+          const assistantMessage = await deps.appendMessage({
+            sessionId: input.sessionId,
+            role: "assistant",
+            content: fallbackContent
+          });
+          yield {
+            type: "done",
+            assistantMessage
+          };
+          return;
+        }
+      } catch (fallbackError) {
+        const mappedFallback = mapStreamError(fallbackError);
+        yield {
+          type: "error",
+          code: mappedFallback.code,
+          message: mappedFallback.message
+        };
+        return;
+      }
+    }
+
     const mapped = mapStreamError(error);
     yield {
       type: "error",

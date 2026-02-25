@@ -85,4 +85,25 @@ describe("session stream client", () => {
       )
     ).rejects.toBeInstanceOf(AppApiError);
   });
+
+  it("throws AppApiError instead of SyntaxError when error response is non-json", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      json: async () => {
+        throw new SyntaxError("Unexpected token 'I', \"Internal S\"... is not valid JSON");
+      }
+    });
+
+    await expect(
+      streamSessionAssistantReply(
+        {
+          sessionId: "s1",
+          content: "hello"
+        },
+        fetchMock as unknown as typeof fetch
+      )
+    ).rejects.toBeInstanceOf(AppApiError);
+  });
 });

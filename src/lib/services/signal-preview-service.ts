@@ -43,6 +43,7 @@ interface SignalPreviewDeps {
     sourceName: string | null;
     url: string;
   }) => Promise<string>;
+  hasActiveLlmConfig: () => Promise<boolean>;
   now: () => Date;
 }
 
@@ -76,6 +77,13 @@ export interface SignalPreviewPrefetchSummary {
 
 function isLegacyTruncatedHeuristicCache(cache: SignalPreviewCache): boolean {
   return cache.aiSummaryMode === "HEURISTIC" && cache.aiSummary.trim().endsWith("...");
+}
+
+function hasMissingConfigWarning(warnings: string[]): boolean {
+  return warnings.some((item) => {
+    const normalized = item.trim().toLowerCase();
+    return normalized.includes("llm config missing") || normalized.includes("llm_config_missing");
+  });
 }
 
 function heuristicSummary(input: {
@@ -204,6 +212,10 @@ function defaultDeps(): SignalPreviewDeps {
       }
       return content;
     },
+    hasActiveLlmConfig: async () => {
+      const settings = await getAppSettings();
+      return Boolean(settings.apiConfig.baseUrl.trim() && settings.apiConfig.apiKey.trim());
+    },
     now: () => new Date()
   };
 }
@@ -229,7 +241,36 @@ export async function buildSignalPreview(
   }
 
   const cached = await deps.findPreviewCache(signal.id);
-  if (cached && cached.originalUrl === signal.url && !isLegacyTruncatedHeuristicCache(cached)) {
+  const cachedWarnings = cached ? normalizeWarnings(cached.warningsJson) : [];
+  let hasRecoveredLlmConfig = false;
+  if (
+    cached &&
+    cached.originalUrl === signal.url &&
+    cached.aiSummaryMode === "HEURISTIC" &&
+    !isLegacyTruncatedHeuristicCache(cached) &&
+    hasMissingConfigWarning(cachedWarnings)
+  ) {
+    try {
+      hasRecoveredLlmConfig = await deps.hasActiveLlmConfig();
+    } catch {
+      hasRecoveredLlmConfig = false;
+    }
+  }
+
+  const shouldRebuildForRecoveredLlmConfig =
+    cached &&
+    cached.originalUrl === signal.url &&
+    cached.aiSummaryMode === "HEURISTIC" &&
+    !isLegacyTruncatedHeuristicCache(cached) &&
+    hasMissingConfigWarning(cachedWarnings) &&
+    hasRecoveredLlmConfig;
+
+  if (
+    cached &&
+    cached.originalUrl === signal.url &&
+    !isLegacyTruncatedHeuristicCache(cached) &&
+    !shouldRebuildForRecoveredLlmConfig
+  ) {
     return {
       signalId: signal.id,
       title: signal.title,
@@ -238,7 +279,7 @@ export async function buildSignalPreview(
       aiSummary: cached.aiSummary,
       aiSummaryMode: cached.aiSummaryMode,
       articleContent: cached.articleContent,
-      warnings: normalizeWarnings(cached.warningsJson),
+      warnings: cachedWarnings,
       generatedAt: cached.generatedAt.toISOString()
     };
   }

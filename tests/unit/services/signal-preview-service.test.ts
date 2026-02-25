@@ -5,6 +5,86 @@ import {
 } from "@/lib/services/signal-preview-service";
 
 describe("signal-preview-service", () => {
+  it("rebuilds stale missing-config cache once llm config is available", async () => {
+    const fetchArticleExcerpt = vi.fn().mockResolvedValue("新的原文摘录");
+    const summarizeWithLlm = vi.fn().mockResolvedValue("新的 LLM 总结");
+    const upsertPreviewCache = vi.fn();
+
+    const out = await buildSignalPreview(
+      {
+        signalId: "sig-llm-ready"
+      },
+      {
+        findSignal: vi.fn().mockResolvedValue({
+          id: "sig-llm-ready",
+          title: "恢复 LLM 配置后应重建",
+          url: "https://example.com/rebuild",
+          summary: "old summary",
+          source: { name: "测试源" }
+        }),
+        findPreviewCache: vi.fn().mockResolvedValue({
+          signalId: "sig-llm-ready",
+          originalUrl: "https://example.com/rebuild",
+          aiSummary: "旧缓存",
+          aiSummaryMode: "HEURISTIC",
+          articleContent: "旧正文",
+          warningsJson: ["llm config missing"],
+          generatedAt: new Date("2026-02-21T00:00:00.000Z")
+        }),
+        upsertPreviewCache,
+        fetchArticleExcerpt,
+        summarizeWithLlm,
+        hasActiveLlmConfig: vi.fn().mockResolvedValue(true),
+        now: () => new Date("2026-02-22T00:00:00.000Z")
+      } as any
+    );
+
+    expect(out.aiSummaryMode).toBe("LLM");
+    expect(out.aiSummary).toBe("新的 LLM 总结");
+    expect(fetchArticleExcerpt).toHaveBeenCalledTimes(1);
+    expect(summarizeWithLlm).toHaveBeenCalledTimes(1);
+    expect(upsertPreviewCache).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps stale missing-config cache when llm config is still unavailable", async () => {
+    const fetchArticleExcerpt = vi.fn();
+    const summarizeWithLlm = vi.fn();
+
+    const out = await buildSignalPreview(
+      {
+        signalId: "sig-llm-missing"
+      },
+      {
+        findSignal: vi.fn().mockResolvedValue({
+          id: "sig-llm-missing",
+          title: "未配置时继续复用缓存",
+          url: "https://example.com/no-llm",
+          summary: "old summary",
+          source: { name: "测试源" }
+        }),
+        findPreviewCache: vi.fn().mockResolvedValue({
+          signalId: "sig-llm-missing",
+          originalUrl: "https://example.com/no-llm",
+          aiSummary: "旧缓存",
+          aiSummaryMode: "HEURISTIC",
+          articleContent: "旧正文",
+          warningsJson: ["llm config missing"],
+          generatedAt: new Date("2026-02-21T00:00:00.000Z")
+        }),
+        upsertPreviewCache: vi.fn(),
+        fetchArticleExcerpt,
+        summarizeWithLlm,
+        hasActiveLlmConfig: vi.fn().mockResolvedValue(false),
+        now: () => new Date("2026-02-22T00:00:00.000Z")
+      } as any
+    );
+
+    expect(out.aiSummaryMode).toBe("HEURISTIC");
+    expect(out.aiSummary).toBe("旧缓存");
+    expect(fetchArticleExcerpt).not.toHaveBeenCalled();
+    expect(summarizeWithLlm).not.toHaveBeenCalled();
+  });
+
   it("returns cached preview without calling article fetch and llm", async () => {
     const fetchArticleExcerpt = vi.fn();
     const summarizeWithLlm = vi.fn();
