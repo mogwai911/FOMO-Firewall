@@ -1,128 +1,58 @@
-# FOMO Firewall (MVP)
+# FOMO Firewall
 
-FOMO Firewall is a guardrail-first workflow for information overload:
+FOMO Firewall 是一个帮助信息过载用户每天快速筛掉“可跳过内容”，并只深入真正有价值资讯的学习工具。
 
-`设置 RSS/LLM -> 日报处置 -> 学习会话 -> 洞察沉淀`
+## 效果展示
 
-Current implementation is a single Next.js app with Prisma + SQLite.
+![日报处置界面](.github/readme/preview-digest.png)
+上图展示了你如何在一页里完成“去学习 / 稍后看 / 忽略”的日常决策。
 
-## Tech Stack
+![学习会话界面](.github/readme/preview-session.png)
+上图展示了你如何围绕单条资讯继续追问、沉淀洞察，并回到记忆库复盘。
 
-- Next.js 16 + React 19 + TypeScript
-- Prisma 6 + SQLite
-- Vitest (unit) + Playwright (e2e)
-- OpenAI-compatible LLM API integration
+[立即体验（本地启动）→](#快速开始推荐一键启动)
 
-## Quick Start (Local)
+## 核心功能
 
-### 1) Install
+- 你可以把多条订阅源合并到同一个日报里，统一做当天处置。  
+- 你可以在每条资讯上直接做“去学习 / 稍后看 / 忽略”，减少决策疲劳。  
+- 你可以进入学习会话持续追问，让助手围绕同一条资讯深入拆解。  
+- 你可以把学习结果沉淀为洞察卡，后续快速回看关键结论和证据。  
+- 你可以按自己的偏好修改提示词和模型设置，让分流与回答更贴合你。  
 
-```bash
-npm install
-```
+## 快速开始（推荐：一键启动）
 
-### 2) Configure environment
+开始前你需要准备：
+- 一台可联网电脑（Windows / macOS / Linux 均可）
+- 安装好 Docker Desktop
+- 一个可用的大模型服务密钥（兼容 OpenAI 协议）
 
-Copy example and set your own values:
+步骤：
+1. 下载本项目代码到本地。
+2. 复制环境文件：`cp .env.example .env`
+3. 生成并填入你的加密密钥：`APP_SETTINGS_ENCRYPTION_KEY`
+4. 启动：`docker compose up -d --build`
+5. 打开浏览器访问：`http://localhost:3000`
+6. 在“设置”里填入模型地址、密钥，并添加你的订阅源。
+7. 回到“日报处置”，点击“更新日报”开始使用。
 
-```bash
-cp .env.example .env
-```
+## 常见问题 FAQ
 
-Required:
-- `DATABASE_URL`
-- `APP_SETTINGS_ENCRYPTION_KEY` (base64 32-byte key)
+**Q: 为什么我打开后页面没有内容？**  
+A: 先去“设置”添加至少 1 条订阅源，然后回到“日报处置”点击“更新日报”。  
 
-Generate encryption key example:
+**Q: 需要付费吗？**  
+A: 工具本身不强制付费，但你使用的大模型服务可能按调用收费。  
 
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-```
+**Q: 需要什么账号？**  
+A: 你需要一个可用的大模型服务账号，用来获取模型地址和密钥。  
 
-### 3) Prepare database
+**Q: 我的数据会被保存到哪里？**  
+A: 默认保存在你自己的本机数据文件（Docker 数据卷）里，不会自动上传到第三方。  
 
-```bash
-npx prisma generate
-npx prisma db push
-```
+**Q: 启动失败怎么办？**  
+A: 先确认 Docker Desktop 已启动，再执行 `docker compose up -d --build`；如果仍失败，执行 `docker compose logs -f` 查看报错。  
 
-### 4) Start app
+## License
 
-```bash
-npm run dev
-```
-
-Open: `http://localhost:3000`
-
-## Tests & Build
-
-```bash
-npm run test -- --run
-npm run test:e2e
-npm run build
-```
-
-Real LLM e2e gate (optional release gate):
-
-```bash
-export LLM_E2E_BASE_URL="https://api.openai.com/v1"
-export LLM_E2E_API_KEY="<key>"
-npm run gate:release:llm
-```
-
-## Release Sanitization
-
-Before release publish, run:
-
-```bash
-npm run release:sanitize
-```
-
-It will:
-- keep default RSS sources as baseline:
-  - `https://www.jiqizhixin.com/rss`
-  - `https://www.qbitai.com/feed`
-- clear personal LLM config from DB (`apiBaseUrl/apiKey/apiModel`)
-
-## Docker One-Command Deployment
-
-### 1) Ensure `.env` exists with:
-- `APP_SETTINGS_ENCRYPTION_KEY`
-
-### 2) Build and run
-
-```bash
-docker compose up -d --build
-```
-
-Open: `http://localhost:3000`
-
-Data persistence:
-- SQLite is mounted to Docker volume `fomo_firewall_data` at `/app/data/app.db`
-
-### 3) Stop
-
-```bash
-docker compose down
-```
-
-## GitHub Publish (first time)
-
-```bash
-git init
-git branch -M main
-git remote add origin git@github.com:<you>/<repo>.git
-git add .
-git commit -m "chore: mvp closeout baseline"
-git push -u origin main
-```
-
-If using HTTPS remote:
-
-```bash
-git remote add origin https://github.com/<you>/<repo>.git
-```
-
-## Notes
-
-- This public repo intentionally excludes local project docs used during development.
+MIT
