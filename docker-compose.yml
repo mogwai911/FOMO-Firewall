@@ -1,0 +1,18 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fomo-firewall
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "file:/app/data/app.db"
+      APP_SETTINGS_ENCRYPTION_KEY: "${APP_SETTINGS_ENCRYPTION_KEY}"
+      TRIAGE_LLM_MODEL: "${TRIAGE_LLM_MODEL:-gpt-4o-mini}"
+    volumes:
+      - fomo_firewall_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  fomo_firewall_data:

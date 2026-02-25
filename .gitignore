@@ -1,0 +1,39 @@
+# dependencies
+node_modules/
+
+# build artifacts
+.next/
+out/
+output/
+dist/
+
+# environment
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+
+# test artifacts
+test-results/
+playwright-report/
+coverage/
+
+# local runtime/cache
+.local/
+.codex/
+.vscode/
+
+# local databases
+prisma/*.db
+prisma/*.db-journal
+
+docs/supervisor_project_memo/
+docs/rollback/
+docs/plans/
+docs/development-log.md
+docs/fomo_firewall_execution_checklist.md
+docs/codex_prompt_pack.md
+docs/rss_triage_learning.png

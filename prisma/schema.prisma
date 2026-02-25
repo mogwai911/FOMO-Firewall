@@ -1,0 +1,388 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PM
+  ENG
+  RES
+}
+
+enum EventType {
+  MORE_IMPORTANT
+  LESS_IMPORTANT
+  COMPLETED
+  SCHEDULED
+  IGNORED
+  REMIND_7D
+  OPEN_SOURCE
+  MARK_RELEVANT
+  MARK_NOT_RELEVANT
+  ASK_SOMEONE_SENT
+  DEFERRED_BUT_IMPORTANT
+  CARD_REVISITED
+  CARD_REFERENCED
+}
+
+enum ItemStatus {
+  NEW
+  TRIAGED
+  SCHEDULED
+  IGNORED
+  COMPLETED
+  CARD_CREATED
+}
+
+enum SourceType {
+  URL
+  TEXT
+}
+
+enum IngestionStatus {
+  SUCCESS
+  FAILED
+}
+
+enum DispositionLabel {
+  FYI
+  DO
+  DROP
+}
+
+enum SessionStatusV2 {
+  ACTIVE
+  PAUSED
+  CLOSED
+}
+
+enum MessageRoleV2 {
+  USER
+  ASSISTANT
+  TOOL
+}
+
+enum JobTypeV2 {
+  INSIGHT_CARD
+  EVIDENCE_PACK
+}
+
+enum JobStatusV2 {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum EventTypeV2 {
+  DISPOSITION_SET
+  DISPOSITION_CHANGED
+  TRIAGE_EXPANDED
+  SESSION_ENTERED
+  SESSION_RESUMED
+  SESSION_MESSAGE_APPENDED
+  JOB_ENQUEUED
+}
+
+enum DigestRunMode {
+  MANUAL
+  SCHEDULED
+}
+
+model UserProfile {
+  id                String   @id @default(cuid())
+  role              Role     @default(ENG)
+  timeBudgetMinutes Int?
+  hypeWords         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model AppSettings {
+  id              String   @id @default("default")
+  scheduleEnabled Boolean  @default(false)
+  scheduleTime    String   @default("09:00")
+  timezone        String   @default("UTC")
+  apiBaseUrl      String?
+  apiKey          String?
+  apiModel        String   @default("")
+  triagePromptTemplate String @default("")
+  sessionAssistantPromptTemplate String @default("")
+  suggestedQuestionsPromptTemplate String @default("")
+  lastScheduleRunAt DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model DigestRun {
+  id             String       @id @default(cuid())
+  dateKey        String       @unique
+  mode           DigestRunMode
+  signalCount    Int          @default(0)
+  processedCount Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model DigestSnapshot {
+  id             String   @id @default(cuid())
+  dateKey        String
+  windowDays     Int
+  signalIdsJson  Json
+  refreshMetaJson Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([dateKey, windowDays])
+  @@index([updatedAt])
+}
+
+model Item {
+  id                String             @id @default(cuid())
+  url               String?
+  normalizedUrl     String?            @unique
+  title             String?
+  author            String?
+  publishedAt       DateTime?
+  extractedText     String
+  contentHash       String             @unique
+  status            ItemStatus         @default(NEW)
+  createdAt         DateTime           @default(now())
+  triages           Triage[]
+  events            EventLog[]
+  indexCards        IndexCard[]
+  knowledgeCards    KnowledgeCard[]
+  ingestionAttempts IngestionAttempt[]
+
+  @@index([normalizedUrl])
+  @@index([contentHash])
+}
+
+model Triage {
+  id             String          @id @default(cuid())
+  itemId         String
+  role           Role
+  triageJson     Json
+  createdAt      DateTime        @default(now())
+  item           Item            @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  indexCards     IndexCard[]
+  knowledgeCards KnowledgeCard[]
+
+  @@index([itemId, createdAt])
+}
+
+model EventLog {
+  id         String    @id @default(cuid())
+  itemId     String
+  eventType  EventType
+  payloadJson Json?
+  createdAt  DateTime  @default(now())
+  item       Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, eventType, createdAt])
+}
+
+model IndexCard {
+  id          String   @id @default(cuid())
+  itemId      String
+  triageId    String
+  contentJson Json
+  createdAt   DateTime @default(now())
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  triage      Triage   @relation(fields: [triageId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, createdAt])
+  @@index([triageId])
+}
+
+model KnowledgeCard {
+  id          String   @id @default(cuid())
+  itemId      String
+  triageId    String
+  starLevel   Int      @default(3)
+  contentJson Json
+  createdAt   DateTime @default(now())
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  triage      Triage   @relation(fields: [triageId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, createdAt])
+  @@index([triageId])
+}
+
+model IngestionAttempt {
+  id          String          @id @default(cuid())
+  itemId       String?
+  sourceType   SourceType
+  status       IngestionStatus
+  failureCode  String?
+  latencyMs    Int?
+  createdAt    DateTime       @default(now())
+  item         Item?          @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([sourceType, status, createdAt])
+}
+
+model Source {
+  id        String   @id @default(cuid())
+  rssUrl    String   @unique
+  name      String?
+  tagsJson  Json?
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  signals   Signal[]
+}
+
+model Signal {
+  id           String              @id @default(cuid())
+  sourceId     String
+  title        String
+  url          String
+  guid         String?
+  publishedAt  DateTime?
+  summary      String?
+  rawEntryJson Json
+  createdAt    DateTime            @default(now())
+  source       Source              @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  triages      SignalTriage[]
+  dispositions SignalDisposition[]
+  sessions     Session[]
+  insightCards  InsightCard[]
+  evidencePacks EvidencePack[]
+  previewCache SignalPreviewCache?
+  eventsV2      EventLogV2[]
+
+  @@unique([sourceId, url])
+  @@index([createdAt])
+  @@index([publishedAt])
+}
+
+model SignalPreviewCache {
+  id            String   @id @default(cuid())
+  signalId      String   @unique
+  originalUrl   String
+  aiSummary     String
+  aiSummaryMode String
+  articleContent String?
+  warningsJson  Json
+  generatedAt   DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  signal        Signal   @relation(fields: [signalId], references: [id], onDelete: Cascade)
+
+  @@index([updatedAt])
+}
+
+model SignalTriage {
+  id         String   @id @default(cuid())
+  signalId   String
+  role       Role
+  triageJson Json
+  createdAt  DateTime @default(now())
+  signal     Signal   @relation(fields: [signalId], references: [id], onDelete: Cascade)
+
+  @@index([signalId, createdAt])
+}
+
+model SignalDisposition {
+  id         String           @id @default(cuid())
+  signalId   String           @unique
+  label      DispositionLabel
+  isOverride Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  signal     Signal           @relation(fields: [signalId], references: [id], onDelete: Cascade)
+
+  @@index([label, updatedAt])
+}
+
+model Session {
+  id           String          @id @default(cuid())
+  signalId      String
+  status        SessionStatusV2 @default(PAUSED)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  signal        Signal          @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  messages      SessionMessage[]
+  jobs          Job[]
+  insightCards  InsightCard[]
+  evidencePacks EvidencePack[]
+  eventsV2      EventLogV2[]
+
+  @@index([signalId, updatedAt])
+}
+
+model SessionMessage {
+  id        String        @id @default(cuid())
+  sessionId String
+  role      MessageRoleV2
+  content   String
+  metaJson  Json?
+  createdAt DateTime      @default(now())
+  session   Session       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+}
+
+model Job {
+  id           String      @id @default(cuid())
+  sessionId    String
+  type         JobTypeV2
+  status       JobStatusV2 @default(QUEUED)
+  error        String?
+  resultRefJson Json?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  session      Session     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  eventsV2     EventLogV2[]
+
+  @@index([sessionId, status, updatedAt])
+}
+
+model EventLogV2 {
+  id         String      @id @default(cuid())
+  type       EventTypeV2
+  signalId   String?
+  sessionId  String?
+  jobId      String?
+  payloadJson Json?
+  createdAt  DateTime    @default(now())
+  signal     Signal?     @relation(fields: [signalId], references: [id], onDelete: SetNull)
+  session    Session?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  job        Job?        @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@index([type, createdAt])
+  @@index([signalId, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([jobId, createdAt])
+}
+
+model InsightCard {
+  id        String   @id @default(cuid())
+  sessionId String
+  signalId  String
+  insightJson Json
+  createdAt DateTime @default(now())
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  signal    Signal   @relation(fields: [signalId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@index([signalId, createdAt])
+}
+
+model EvidencePack {
+  id        String   @id @default(cuid())
+  sessionId String?
+  signalId  String
+  packJson  Json
+  createdAt DateTime @default(now())
+  session   Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  signal    Signal   @relation(fields: [signalId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@index([signalId, createdAt])
+}

@@ -1,0 +1,12 @@
+node_modules
+.next
+test-results
+output
+.local
+.vscode
+.git
+*.log
+.env
+prisma/*.db
+prisma/*.db-journal
+docs

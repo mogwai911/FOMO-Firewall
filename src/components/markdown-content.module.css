@@ -1,0 +1,50 @@
+.markdown {
+  display: block;
+  color: inherit;
+  line-height: 1.55;
+}
+
+.markdown p {
+  margin: 0.25rem 0;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0.25rem 0 0.25rem 1rem;
+  padding: 0;
+}
+
+.markdown li {
+  margin: 0.15rem 0;
+}
+
+.markdown pre {
+  margin: 0.35rem 0;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #d0c1a6;
+  border-radius: 8px;
+  background: rgba(255, 248, 235, 0.92);
+  overflow-x: auto;
+}
+
+.markdown code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.78rem;
+}
+
+.markdown pre code {
+  font-size: 0.75rem;
+}
+
+.markdown blockquote {
+  margin: 0.35rem 0;
+  padding-left: 0.5rem;
+  border-left: 3px solid #0f766e;
+  color: #4f4f4f;
+}
+
+.markdown a {
+  color: #0f766e;
+  text-decoration: underline;
+}
