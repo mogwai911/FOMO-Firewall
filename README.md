@@ -54,10 +54,17 @@ FOMO Firewall 是一个帮助信息过载用户快速完成“去学习 / 稍后
 ### 方式 A（推荐）：直接拉镜像运行
 
 ```bash
-docker run -d --name fomo-firewall -p 3000:3000 -v fomo_firewall_data:/app/data ghcr.io/mogwai911/fomo-firewall:latest
+docker run -d --name fomo-firewall -p 3000:3000 -v fomo_firewall_data:/app/data -e DATABASE_URL=file:/app/data/app.db ghcr.io/mogwai911/fomo-firewall:latest
 ```
 
 然后打开：`http://localhost:3000`
+
+如果你之前拉过旧镜像并启动失败，先执行：
+
+```bash
+docker rm -f fomo-firewall
+docker pull ghcr.io/mogwai911/fomo-firewall:latest
+```
 
 ### 方式 B：本地构建运行
 

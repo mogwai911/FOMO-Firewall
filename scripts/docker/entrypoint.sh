@@ -1,10 +1,13 @@
 #!/usr/bin/env sh
 set -eu
 
+# Single-user quick-start:
+# when DATABASE_URL is missing, default to persisted sqlite path.
 if [ -z "${DATABASE_URL:-}" ]; then
-  echo "DATABASE_URL is required." >&2
-  exit 1
+  DATABASE_URL="file:/app/data/app.db"
 fi
+
+export DATABASE_URL
 
 KEY_FILE="${APP_SETTINGS_ENCRYPTION_KEY_FILE:-/app/data/.app_settings_encryption_key}"
 
@@ -24,5 +27,6 @@ fi
 
 export APP_SETTINGS_ENCRYPTION_KEY
 
+npx prisma generate >/dev/null
 npx prisma db push --skip-generate >/dev/null
 exec npm run start
