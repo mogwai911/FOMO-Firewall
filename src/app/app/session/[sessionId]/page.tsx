@@ -14,6 +14,7 @@ import {
   streamSessionAssistantReply,
   startSessionJob
 } from "@/lib/client/app-api";
+import { formatLlmWarningHint, formatSessionStreamErrorHint } from "@/lib/client/llm-warning-hints";
 import type { JobStatusV2, JobTypeV2, SessionDetail, SessionJobView } from "@/lib/client/app-types";
 import { generateSessionQuestionCards } from "@/lib/agent/session-question-agent";
 import { pickAiSummaryText } from "@/lib/shared/ai-summary";
@@ -64,7 +65,9 @@ export default function AppSessionDetailPage() {
   const [draft, setDraft] = useState("");
   const [streamingAssistant, setStreamingAssistant] = useState<string | null>(null);
   const [previewAiSummary, setPreviewAiSummary] = useState<string | null>(null);
+  const [previewLlmHint, setPreviewLlmHint] = useState<string | null>(null);
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
+  const [suggestedQuestionsHint, setSuggestedQuestionsHint] = useState<string | null>(null);
   const [loadingSuggestedQuestions, setLoadingSuggestedQuestions] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -137,6 +140,7 @@ export default function AppSessionDetailPage() {
     async function loadSuggestedQuestions(): Promise<void> {
       if (!session || session.messages.length > 0) {
         setSuggestedQuestions([]);
+        setSuggestedQuestionsHint(null);
         setLoadingSuggestedQuestions(false);
         return;
       }
@@ -146,6 +150,12 @@ export default function AppSessionDetailPage() {
         const out = await fetchSessionSuggestedQuestions(session.id);
         if (cancelled) return;
         setSuggestedQuestions(out.questions.slice(0, 3));
+        setSuggestedQuestionsHint(
+          formatLlmWarningHint({
+            mode: out.mode,
+            warnings: out.warnings
+          })
+        );
       } catch {
         if (cancelled) return;
         setSuggestedQuestions(
@@ -164,6 +174,7 @@ export default function AppSessionDetailPage() {
             }))
           })
         );
+        setSuggestedQuestionsHint(null);
       } finally {
         if (!cancelled) {
           setLoadingSuggestedQuestions(false);
@@ -181,13 +192,21 @@ export default function AppSessionDetailPage() {
     async function loadPreviewSummary(): Promise<void> {
       if (!session) {
         setPreviewAiSummary(null);
+        setPreviewLlmHint(null);
         return;
       }
       try {
         const preview = await fetchSignalPreview(session.signal.id);
         setPreviewAiSummary(preview.aiSummary || null);
+        setPreviewLlmHint(
+          formatLlmWarningHint({
+            mode: preview.aiSummaryMode,
+            warnings: preview.warnings
+          })
+        );
       } catch {
         setPreviewAiSummary(null);
+        setPreviewLlmHint(null);
       }
     }
 
@@ -249,12 +268,20 @@ export default function AppSessionDetailPage() {
         },
         onError: (payload) => {
           setStreamingAssistant(null);
-          setError(`${payload.code}: ${payload.message}`);
+          const hint = formatSessionStreamErrorHint({
+            code: payload.code,
+            message: payload.message
+          });
+          setError(hint ? `${payload.code}: ${hint}` : `${payload.code}: ${payload.message}`);
         }
       });
     } catch (sendError) {
       if (sendError instanceof AppApiError) {
-        setError(`${sendError.code}: ${sendError.message}`);
+        const hint = formatSessionStreamErrorHint({
+          code: sendError.code,
+          message: sendError.message
+        });
+        setError(hint ? `${sendError.code}: ${hint}` : `${sendError.code}: ${sendError.message}`);
       } else {
         setError("SESSION_SEND_FAILED");
       }
@@ -410,6 +437,7 @@ export default function AppSessionDetailPage() {
                 </Link>
               </div>
               <p className={styles.summaryTitle}>AI 总结</p>
+              {previewLlmHint ? <p className={styles.ruleHint}>{previewLlmHint}</p> : null}
               <p className={styles.summaryContent}>
                 {sessionSummary || "暂无摘要，先发起一轮学习会话即可生成更完整总结。"}
               </p>
@@ -420,6 +448,11 @@ export default function AppSessionDetailPage() {
                 <h3>你可能想问</h3>
                 {loadingSuggestedQuestions ? (
                   <p className={styles.ruleHint}>AI 正在阅读这条 feed，生成首轮建议问题...</p>
+                ) : null}
+                {suggestedQuestionsHint ? (
+                  <p className={styles.ruleHint} data-testid="session-suggested-questions-llm-hint">
+                    {suggestedQuestionsHint}
+                  </p>
                 ) : null}
                 <div className={styles.questionRow}>
                   {suggestedQuestions.map((question) => (

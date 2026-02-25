@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import styles from "@/app/demo-ui.module.css";
+import { formatLlmWarningHint } from "@/lib/client/llm-warning-hints";
 import type {
   DigestSignal,
   DispositionLabel,
@@ -60,6 +61,12 @@ export function DigestDrawer({
       : (triage?.snippets ?? [])
           .map((snippet) => snippet.text.trim())
           .filter((snippet) => snippet.length > 0);
+  const previewLlmHint = preview
+    ? formatLlmWarningHint({
+        mode: preview.aiSummaryMode,
+        warnings: preview.warnings
+      })
+    : null;
 
   useEffect(() => {
     setShowOriginalContent(false);
@@ -111,6 +118,11 @@ export function DigestDrawer({
           <h4 className={styles.drawerSectionTitle}>AI 总结</h4>
           {previewLoading ? <p className={styles.ruleHint}>正在加载原文并生成总结...</p> : null}
           {previewError ? <p className={styles.formError}>{previewError}</p> : null}
+          {previewLlmHint ? (
+            <p className={styles.ruleHint} data-testid="digest-drawer-llm-hint">
+              {previewLlmHint}
+            </p>
+          ) : null}
           <p>{preview?.aiSummary ?? triage?.headline ?? signal.summary ?? "暂无总结"}</p>
         </section>
 

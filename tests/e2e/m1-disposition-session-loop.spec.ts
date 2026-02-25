@@ -34,6 +34,7 @@ test("M1 path: disposition -> session -> autosave -> resume (real API)", async (
   await expect(page.getByTestId("session-suggested-questions")).toBeVisible();
   await expect(page.getByRole("heading", { name: "你可能想问" })).toBeVisible();
   await expect(page.getByTestId("session-suggested-question")).toHaveCount(3);
+  await expect(page.getByTestId("session-suggested-questions")).toContainText("未配置 LLM API Key");
   await expect(page.getByTestId("session-suggested-questions")).not.toContainText(
     "如果今天只做一件事，我应该先验证哪个指标？"
   );

@@ -38,6 +38,7 @@ import {
   formatDispositionLabel,
   formatSuggestionLabel
 } from "@/lib/client/digest-view";
+import { formatLlmWarningHint } from "@/lib/client/llm-warning-hints";
 import { paginateItems } from "@/lib/client/pagination";
 import { parseTriageCardView } from "@/lib/client/triage-card-view";
 import { pickAiSummaryText } from "@/lib/shared/ai-summary";
@@ -1123,6 +1124,13 @@ function AppDigestPageBody() {
         {pagedSignals.items.map((signal) => {
           const userDisposition = dispositions[signal.id] ?? "UNSET";
           const triage = triageBySignal[signal.id] ?? null;
+          const preview = previewBySignal[signal.id] ?? null;
+          const llmHint = preview
+            ? formatLlmWarningHint({
+                mode: preview.aiSummaryMode,
+                warnings: preview.warnings
+              })
+            : null;
           const canOpenSession = userDisposition === "DO";
           const showResumeLabel = sessionHintBySignal[signal.id] || canOpenSession;
 
@@ -1135,11 +1143,16 @@ function AppDigestPageBody() {
                 </p>
                 <p className={styles.signalSummary}>
                   {pickAiSummaryText({
-                    aiSummary: previewBySignal[signal.id]?.aiSummary,
+                    aiSummary: preview?.aiSummary,
                     triageHeadline: triage?.headline,
                     summary: signal.summary
                   })}
                 </p>
+                {llmHint ? (
+                  <p className={styles.ruleHint} data-testid={`signal-llm-hint-${signal.id}`}>
+                    {llmHint}
+                  </p>
+                ) : null}
                 <a className={styles.btnGhost} href={signal.url} target="_blank" rel="noreferrer">
                   打开原文
                 </a>

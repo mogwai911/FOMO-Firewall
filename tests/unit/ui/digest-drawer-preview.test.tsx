@@ -106,4 +106,29 @@ describe("DigestDrawer preview rendering", () => {
     expect(html).toContain("展开原文内容");
     expect(html).toContain('data-testid="digest-drawer-reason-section"');
   });
+
+  it("shows llm config hint when preview falls back to heuristic mode", () => {
+    const html = renderToStaticMarkup(
+      <DigestDrawer
+        signal={signal}
+        triage={null}
+        preview={{
+          aiSummary: "这是降级后的摘要",
+          aiSummaryMode: "HEURISTIC",
+          articleContent: "原文摘录",
+          originalUrl: "https://example.com/post",
+          warnings: ["llm config missing"]
+        }}
+        previewLoading={false}
+        previewError={null}
+        userDisposition="UNSET"
+        isGenerating={false}
+        onClose={vi.fn()}
+        onSetDisposition={vi.fn()}
+        onGenerateTriage={vi.fn()}
+      />
+    );
+
+    expect(html).toContain("未配置 LLM API Key");
+  });
 });
