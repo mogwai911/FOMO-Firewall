@@ -51,6 +51,7 @@ interface SignalRow {
     id: string;
     name: string | null;
     tagsJson: unknown;
+    enabled: boolean;
   };
   dispositions: Array<{ label: "FYI" | "DO" | "DROP" }>;
   triages: Array<{ triageJson: unknown }>;
@@ -80,6 +81,9 @@ function defaultDeps(): DigestDeps {
     listSignalsForDate: (start, endExclusive, limit) =>
       db.signal.findMany({
         where: {
+          source: {
+            enabled: true
+          },
           OR: [
             {
               publishedAt: {
@@ -109,7 +113,8 @@ function defaultDeps(): DigestDeps {
             select: {
               id: true,
               name: true,
-              tagsJson: true
+              tagsJson: true,
+              enabled: true
             }
           },
           dispositions: {
@@ -305,11 +310,12 @@ export async function generateDigestForDate(
 
   const candidateLimit = Math.max(limit, Math.min(200, limit * 3));
   const rows = await deps.listSignalsForDate(start, endExclusive, candidateLimit);
+  const enabledRows = rows.filter((row) => row.source.enabled !== false);
   const sourceFeedbackMap = await deps.listSourceFeedback(
-    Array.from(new Set(rows.map((row) => row.source.id)))
+    Array.from(new Set(enabledRows.map((row) => row.source.id)))
   );
   const nowMs = Date.now();
-  const rankedRows = rows
+  const rankedRows = enabledRows
     .map((row) => ({
       row,
       score: computeRankingScore(row, role, sourceFeedbackMap[row.source.id], nowMs)

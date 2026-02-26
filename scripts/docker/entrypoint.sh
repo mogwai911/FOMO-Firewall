@@ -29,4 +29,13 @@ export APP_SETTINGS_ENCRYPTION_KEY
 
 npx prisma generate >/dev/null
 npx prisma db push --skip-generate >/dev/null
+
+NEEDS_RELEASE_SANITIZE="$(
+  node -e "const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); (async () => { const row = await prisma.appSettings.findUnique({ where: { id: 'default' }, select: { id: true } }); console.log(row ? '0' : '1'); })().catch(() => { console.log('1'); }).finally(async () => { await prisma.\$disconnect(); });"
+)"
+
+if [ "$NEEDS_RELEASE_SANITIZE" = "1" ]; then
+  npm run release:sanitize >/dev/null
+fi
+
 exec npm run start

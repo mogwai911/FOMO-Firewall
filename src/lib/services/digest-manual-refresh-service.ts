@@ -71,7 +71,10 @@ interface DigestManualRefreshDeps {
     signalIds: string[];
     role: RoleV2;
   }) => Promise<TriagePrefetchSummary>;
-  prefetchSignalPreview: (input: { signalIds: string[] }) => Promise<{
+  prefetchSignalPreview: (input: {
+    signalIds: string[];
+    forceRefresh?: boolean;
+  }) => Promise<{
     requested: number;
     generated: number;
     failed: number;
@@ -307,7 +310,8 @@ function defaultDeps(): DigestManualRefreshDeps {
         errors
       };
     },
-    prefetchSignalPreview: ({ signalIds }) => prefetchSignalPreview({ signalIds }),
+    prefetchSignalPreview: ({ signalIds, forceRefresh }) =>
+      prefetchSignalPreview({ signalIds, forceRefresh }),
     resetDigestDataForDate: async (dateKey, timezone, windowDays) => {
       const { start, endExclusive } = parseDateWindow(dateKey, timezone, windowDays);
       await db.$transaction([
@@ -480,7 +484,8 @@ export async function manualRefreshDigest(
         })
       : digestBeforeTriage;
   await deps.prefetchSignalPreview({
-    signalIds: digest.signals.map((signal) => signal.id)
+    signalIds: digest.signals.map((signal) => signal.id),
+    forceRefresh: true
   });
 
   const processedCount = await deps.countProcessedSignals(input.dateKey, timezone, windowDays);

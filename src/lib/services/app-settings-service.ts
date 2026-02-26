@@ -172,8 +172,8 @@ function decryptStoredApiKey(value: string | null | undefined): string {
   }
   try {
     return decryptApiKeyValue(raw, getSettingsEncryptionKey());
-  } catch (error) {
-    throw toSettingsServiceError(error);
+  } catch {
+    return "";
   }
 }
 

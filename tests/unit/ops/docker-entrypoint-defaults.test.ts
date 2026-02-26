@@ -48,6 +48,7 @@ describe("docker entrypoint defaults", () => {
     makeExecutable(
       path.join(fakeBin, "npm"),
       "#!/usr/bin/env bash\n" +
+        "echo \"NPM ARGS=$*\" >> \"$TRACE_FILE\"\n" +
         "echo \"NPM DATABASE_URL=${DATABASE_URL:-}\" >> \"$TRACE_FILE\"\n" +
         "echo \"NPM APP_SETTINGS_ENCRYPTION_KEY=${APP_SETTINGS_ENCRYPTION_KEY:-}\" >> \"$TRACE_FILE\"\n" +
         "exit 0\n"
@@ -76,6 +77,8 @@ describe("docker entrypoint defaults", () => {
     const trace = fs.readFileSync(traceFile, "utf8");
     expect(trace).toContain("NPX ARGS=prisma generate");
     expect(trace).toContain("NPX ARGS=prisma db push --skip-generate");
+    expect(trace).toContain("NPM ARGS=run release:sanitize");
+    expect(trace).toContain("NPM ARGS=run start");
     expect(trace).toContain("NPX DATABASE_URL=file:/app/data/app.db");
     expect(trace).toContain("NPM DATABASE_URL=file:/app/data/app.db");
     expect(trace).toMatch(/NPM APP_SETTINGS_ENCRYPTION_KEY=.+/);

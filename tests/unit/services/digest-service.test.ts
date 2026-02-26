@@ -2,6 +2,56 @@ import { describe, expect, it, vi } from "vitest";
 import { generateDigestForDate } from "@/lib/services/digest-service";
 
 describe("digest-service", () => {
+  it("excludes disabled sources from digest candidates", async () => {
+    const deps = {
+      listSignalsForDate: vi.fn().mockResolvedValue([
+        {
+          id: "sig-enabled",
+          title: "启用源信号",
+          url: "https://example.com/enabled",
+          summary: "enabled",
+          publishedAt: new Date("2026-02-20T10:00:00.000Z"),
+          createdAt: new Date("2026-02-20T10:00:00.000Z"),
+          source: {
+            id: "src-enabled",
+            name: "Enabled Source",
+            tagsJson: null,
+            enabled: true
+          },
+          dispositions: [],
+          triages: [{ triageJson: { score: 60 } }]
+        },
+        {
+          id: "sig-disabled",
+          title: "禁用源信号",
+          url: "https://example.com/disabled",
+          summary: "disabled",
+          publishedAt: new Date("2026-02-20T11:00:00.000Z"),
+          createdAt: new Date("2026-02-20T11:00:00.000Z"),
+          source: {
+            id: "src-disabled",
+            name: "Disabled Source",
+            tagsJson: null,
+            enabled: false
+          },
+          dispositions: [],
+          triages: [{ triageJson: { score: 99 } }]
+        }
+      ]),
+      listSourceFeedback: vi.fn().mockResolvedValue({})
+    };
+
+    const out = await generateDigestForDate(
+      {
+        dateKey: "2026-02-20",
+        role: "ENG"
+      },
+      deps as any
+    );
+
+    expect(out.signals.map((item) => item.id)).toEqual(["sig-enabled"]);
+  });
+
   it("prioritizes score and feedback over pure recency", async () => {
     const deps = {
       listSignalsForDate: vi.fn().mockResolvedValue([

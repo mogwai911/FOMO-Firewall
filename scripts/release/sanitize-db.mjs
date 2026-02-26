@@ -25,15 +25,14 @@ async function main() {
   const existingUrlSet = new Set(existingSources.map((source) => source.rssUrl));
   const missingDefaults = DEFAULT_SOURCES.filter((source) => !existingUrlSet.has(source.rssUrl));
 
-  if (missingDefaults.length > 0) {
-    await prisma.source.createMany({
-      data: missingDefaults.map((source) => ({
+  for (const source of missingDefaults) {
+    await prisma.source.create({
+      data: {
         rssUrl: source.rssUrl,
         name: source.name,
         tagsJson: source.tagsJson,
         enabled: true
-      })),
-      skipDuplicates: true
+      }
     });
   }
 

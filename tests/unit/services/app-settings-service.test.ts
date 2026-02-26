@@ -269,4 +269,32 @@ describe("app-settings-service", () => {
       })
     );
   });
+
+  it("does not throw when stored api key cannot be decrypted with current key", async () => {
+    const encryptedWithAnotherKey = encryptApiKeyValue(
+      "sk-old",
+      Buffer.alloc(32, 21)
+    );
+    vi.stubEnv("APP_SETTINGS_ENCRYPTION_KEY", Buffer.alloc(32, 7).toString("base64"));
+    const deps = {
+      findSingleton: vi.fn().mockResolvedValue({
+        id: "default",
+        scheduleEnabled: false,
+        scheduleTime: "09:00",
+        timezone: "UTC",
+        apiBaseUrl: "https://api.example.com/v1",
+        apiKey: encryptedWithAnotherKey,
+        apiModel: "gpt-4o-mini",
+        triagePromptTemplate: "",
+        sessionAssistantPromptTemplate: "",
+        suggestedQuestionsPromptTemplate: "",
+        updatedAt: new Date("2026-02-20T10:00:00.000Z")
+      }),
+      upsertSingleton: vi.fn()
+    };
+
+    const out = await getAppSettings(deps as any);
+    expect(out.apiConfig.baseUrl).toBe("https://api.example.com/v1");
+    expect(out.apiConfig.apiKey).toBe("");
+  });
 });

@@ -232,6 +232,7 @@ function normalizeWarnings(warningsJson: unknown): string[] {
 export async function buildSignalPreview(
   input: {
     signalId: string;
+    forceRefresh?: boolean;
   },
   deps: SignalPreviewDeps = defaultDeps()
 ): Promise<SignalPreviewView> {
@@ -268,6 +269,7 @@ export async function buildSignalPreview(
   if (
     cached &&
     cached.originalUrl === signal.url &&
+    !input.forceRefresh &&
     !isLegacyTruncatedHeuristicCache(cached) &&
     !shouldRebuildForRecoveredLlmConfig
   ) {
@@ -337,7 +339,7 @@ export async function buildSignalPreview(
 }
 
 export async function prefetchSignalPreview(
-  input: { signalIds: string[] },
+  input: { signalIds: string[]; forceRefresh?: boolean },
   deps: SignalPreviewDeps = defaultDeps()
 ): Promise<SignalPreviewPrefetchSummary> {
   const uniqueSignalIds = Array.from(new Set(input.signalIds));
@@ -348,7 +350,8 @@ export async function prefetchSignalPreview(
     try {
       await buildSignalPreview(
         {
-          signalId
+          signalId,
+          forceRefresh: input.forceRefresh
         },
         deps
       );

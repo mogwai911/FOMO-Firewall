@@ -5,6 +5,47 @@ import {
 } from "@/lib/services/signal-preview-service";
 
 describe("signal-preview-service", () => {
+  it("rebuilds cache when forceRefresh is true", async () => {
+    const fetchArticleExcerpt = vi.fn().mockResolvedValue("新的原文摘录");
+    const summarizeWithLlm = vi.fn().mockResolvedValue("新的 LLM 总结");
+    const upsertPreviewCache = vi.fn();
+
+    const out = await buildSignalPreview(
+      {
+        signalId: "sig-force",
+        forceRefresh: true
+      } as any,
+      {
+        findSignal: vi.fn().mockResolvedValue({
+          id: "sig-force",
+          title: "强制重建",
+          url: "https://example.com/force",
+          summary: "old summary",
+          source: { name: "测试源" }
+        }),
+        findPreviewCache: vi.fn().mockResolvedValue({
+          signalId: "sig-force",
+          originalUrl: "https://example.com/force",
+          aiSummary: "旧缓存",
+          aiSummaryMode: "LLM",
+          articleContent: "旧正文",
+          warningsJson: [],
+          generatedAt: new Date("2026-02-21T00:00:00.000Z")
+        }),
+        upsertPreviewCache,
+        fetchArticleExcerpt,
+        summarizeWithLlm,
+        hasActiveLlmConfig: vi.fn().mockResolvedValue(true),
+        now: () => new Date("2026-02-22T00:00:00.000Z")
+      } as any
+    );
+
+    expect(out.aiSummary).toBe("新的 LLM 总结");
+    expect(fetchArticleExcerpt).toHaveBeenCalledTimes(1);
+    expect(summarizeWithLlm).toHaveBeenCalledTimes(1);
+    expect(upsertPreviewCache).toHaveBeenCalledTimes(1);
+  });
+
   it("rebuilds stale missing-config cache once llm config is available", async () => {
     const fetchArticleExcerpt = vi.fn().mockResolvedValue("新的原文摘录");
     const summarizeWithLlm = vi.fn().mockResolvedValue("新的 LLM 总结");

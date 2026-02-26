@@ -78,7 +78,8 @@ describe("digest-manual-refresh-service", () => {
       role: "ENG"
     });
     expect(prefetchSignalPreview).toHaveBeenCalledWith({
-      signalIds: ["sig-1"]
+      signalIds: ["sig-1"],
+      forceRefresh: true
     });
     expect(generateDigest).toHaveBeenCalledTimes(2);
     expect(upsertDigestRun).toHaveBeenCalledWith({
