@@ -83,4 +83,49 @@ describe("docker entrypoint defaults", () => {
     expect(trace).toContain("NPM DATABASE_URL=file:/app/data/app.db");
     expect(trace).toMatch(/NPM APP_SETTINGS_ENCRYPTION_KEY=.+/);
   });
+
+  it("creates sqlite database file when DATABASE_URL points to a missing file path", () => {
+    const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "entrypoint-db-file-"));
+    tempDirs.push(workDir);
+
+    const fakeBin = path.join(workDir, "fake-bin");
+    fs.mkdirSync(fakeBin, {
+      recursive: true
+    });
+    const traceFile = path.join(workDir, "trace.log");
+    const dbFile = path.join(workDir, "data", "app.db");
+
+    makeExecutable(
+      path.join(fakeBin, "npx"),
+      "#!/usr/bin/env bash\n" +
+        "echo \"NPX ARGS=$*\" >> \"$TRACE_FILE\"\n" +
+        "echo \"NPX DATABASE_URL=${DATABASE_URL:-}\" >> \"$TRACE_FILE\"\n" +
+        "exit 0\n"
+    );
+    makeExecutable(
+      path.join(fakeBin, "npm"),
+      "#!/usr/bin/env bash\n" +
+        "echo \"NPM ARGS=$*\" >> \"$TRACE_FILE\"\n" +
+        "exit 0\n"
+    );
+
+    const env = {
+      ...process.env,
+      PATH: `${fakeBin}:${process.env.PATH ?? ""}`,
+      TRACE_FILE: traceFile,
+      DATABASE_URL: `file:${dbFile}`,
+      APP_SETTINGS_ENCRYPTION_KEY: "test-key"
+    };
+
+    const result = spawnSync("bash", [entrypointPath], {
+      cwd: repoRoot,
+      env,
+      encoding: "utf8"
+    });
+
+    expect(result.status).toBe(0);
+    expect(fs.existsSync(dbFile)).toBe(true);
+    const trace = fs.readFileSync(traceFile, "utf8");
+    expect(trace).toContain(`NPX DATABASE_URL=file:${dbFile}`);
+  });
 });

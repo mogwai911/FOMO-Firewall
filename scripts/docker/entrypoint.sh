@@ -11,6 +11,22 @@ export DATABASE_URL
 
 KEY_FILE="${APP_SETTINGS_ENCRYPTION_KEY_FILE:-/app/data/.app_settings_encryption_key}"
 
+# Ensure sqlite file path exists before prisma db push on first boot.
+case "$DATABASE_URL" in
+  file:*)
+    SQLITE_DB_PATH="${DATABASE_URL#file:}"
+    SQLITE_DB_PATH="${SQLITE_DB_PATH%%\?*}"
+    if [ -n "$SQLITE_DB_PATH" ] && [ "$SQLITE_DB_PATH" != ":memory:" ]; then
+      SQLITE_DB_DIR="$(dirname "$SQLITE_DB_PATH")"
+      if mkdir -p "$SQLITE_DB_DIR" 2>/dev/null; then
+        if [ ! -f "$SQLITE_DB_PATH" ]; then
+          : > "$SQLITE_DB_PATH" 2>/dev/null || true
+        fi
+      fi
+    fi
+    ;;
+esac
+
 # Single-user quick-start:
 # if key env is missing, load from persisted file or auto-generate once.
 if [ -z "${APP_SETTINGS_ENCRYPTION_KEY:-}" ]; then
